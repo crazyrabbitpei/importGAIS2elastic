@@ -8,7 +8,7 @@ var dateFormat = require('dateformat');
 var LineByLineReader = require('line-by-line');
 var S = require('string');
 const exec = require('child_process').exec;
-var sleep = require('sleep'); 
+//var sleep = require('sleep'); 
 
 var ip = setting['db_ip'];
 var port = setting['db_port'];
@@ -26,6 +26,7 @@ var job = new CronJob({
         var date = dateFormat(new Date(), "yyyymmdd");
         readlist(dataDir,date,function(fname,total_column){
             for(i=0;i<fname.length-1;i++){
+
                 //console.log("["+i+"] "+fname[i]);
                 gais2json(total_column,fname[i],function(result){
                     //console.log("result:"+result); 
@@ -41,69 +42,39 @@ var client;
 var tag;
 var import_again=0;
 
-connect2DB(ip,port,function(stat){
-    var date = dateFormat(new Date(), "yyyymmdd");
-    readlist(dataDir,table,function(fname,total_column){
-        var nums = fname.length-1;
-        var i=0;
-        var count_importfile=0;
-        /*
-        gais2json(total_column,fname[i],function(result){
-        });
-        fs.appendFile("logs/import_"+date+".list",fname[i]+"\n",function(err){
-            if(err){
-                //console.log("write log false:"+error);
-            }
-        });
-        */
-        var promise1 = new Promise(function(resolve,reject){
-            gais2json(total_column,fname[i],function(result){
-                resolve(result);   
-            });
+var HashMap = require('hashmap');
+var importedList = new HashMap();
 
-        });
-        promise1.then(function(value){
-            //console.log("["+value+"] done");
-            fs.appendFile("logs/import_"+date+".list",value+"\n",function(err){
-                if(err){
-                    //console.log("write log false:"+error);
+readImportedList("/home/crazyrabbit/importGAIS2elastic/logs/import_20160221.list",function(){
+    connect2DB(ip,port,function(stat){
+        var date = dateFormat(new Date(), "yyyymmdd");
+        readlist(dataDir,table,function(fname,total_column){
+            var nums = fname.length-1;
+            var i=0;
+            var count_importfile=0;
+
+            for(i=0;i<nums;i++){
+                if(importedList.get(fname[i])!==undefined){
+                    //console.log(fname[i]+" imported");
+                    continue;
                 }
-            });
-            if(count_importfile==nums){
-                console.log("All list imported.");
-            }
-        }).catch(function(error){
-            fs.appendFile("logs/err_"+date+".log",error+"\n",function(err){
-                if(err){
-                    //console.log("write log false:"+error);
+                else{
+                    break;
                 }
-            });
-            clearInterval(tag);
-        });
-
-        i++;
-        count_importfile++;
-        if(count_importfile==nums){
-            console.log("All list imported.");
-            return;
-        }
-
-        tag = setInterval(function(){
-            var promise = new Promise(function(resolve,reject){
+            }
+            var promise1 = new Promise(function(resolve,reject){
                 gais2json(total_column,fname[i],function(result){
                     resolve(result);   
                 });
-            
+
             });
-            promise.then(function(value){
+            promise1.then(function(value){
                 //console.log("["+value+"] done");
                 fs.appendFile("logs/import_"+date+".list",value+"\n",function(err){
                     if(err){
                         //console.log("write log false:"+error);
                     }
                 });
-
-                count_importfile++;
                 if(count_importfile==nums){
                     console.log("All list imported.");
                 }
@@ -117,22 +88,72 @@ connect2DB(ip,port,function(stat){
             });
 
             i++;
-            if(i==nums){
-                //console.log("Stop interval and watting....");
-                clearInterval(tag);
+            for(;i<nums;i++){
+                if(importedList.get(fname[i])!==undefined){
+                    //console.log(fname[i]+" imported");
+                    continue;
+                }
+                else{
+                    break;
+                }
             }
-        },60*1000);
-        /*
-        for(i=0;i<fname.length-1;i++){
-            //console.log("["+i+"] "+fname[i]);
-            gais2json(total_column,fname[i],function(result){
-                //console.log("result:"+result); 
-            });
-        } 
-        */
+            count_importfile++;
+            if(count_importfile==nums){
+                console.log("All list imported.");
+                return;
+            }
+
+            tag = setInterval(function(){
+                var promise = new Promise(function(resolve,reject){
+                    gais2json(total_column,fname[i],function(result){
+                        resolve(result);   
+                    });
+
+                });
+                promise.then(function(value){
+                    //console.log("["+value+"] done");
+                    fs.appendFile("logs/import_"+date+".list",value+"\n",function(err){
+                        if(err){
+                            //console.log("write log false:"+error);
+                        }
+                    });
+
+                    count_importfile++;
+                    if(count_importfile==nums){
+                        console.log("All list imported.");
+                    }
+                }).catch(function(error){
+                    fs.appendFile("logs/err_"+date+".log",error+"\n",function(err){
+                        if(err){
+                            //console.log("write log false:"+error);
+                        }
+                    });
+                    clearInterval(tag);
+                });
+
+                i++;
+                for(;i<nums;i++){
+                    if(importedList.get(fname[i])!==undefined){
+                        //console.log(fname[i]+" imported");
+                        continue;
+                    }
+                    else{
+                        break;
+                    }
+                }
+                if(i==nums){
+                    //console.log("Stop interval and watting....");
+                    clearInterval(tag);
+                }
+            },60*1000);
+        });
+        //job.start();
     });
-    //job.start();
+    
 });
+
+
+
 
 
 function connect2DB(dbip,dbport,fin){
@@ -154,6 +175,7 @@ function readlist(dir,filename,fin){
             var fname = stdout.split("\n");
             var total_column = [];
             var i;
+            //read gais column's name
             var column_name = Object.keys(column);
             column_name.forEach(function(cname){
                 var items = Object.keys(column[cname]);
@@ -183,6 +205,28 @@ function gais2json(cname,dir,fin){
     });   
 }
 
+function readImportedList(filename,fin){
+    var i;
+    var body_flag=0;
+    var content = [];
+    var body="";
+
+    var options = {
+        skipEmptyLines:true
+    }
+    var lr = new LineByLineReader(filename,options);
+    lr.on('error', function (err) {
+        console.log("error:"+err);
+    });
+    lr.on('line', function (line) {
+        //var parts = line.split("/");
+        //var newdir = "./"+parts[parts.length-2]+"/"+parts[parts.length-1];
+        importedList.set(line,"1");
+    });
+    lr.on('end',function(){
+        fin("ok");
+    });
+}
 function readGaisdata(cname,filename,fin){
     var i;
     var body_flag=0;
@@ -219,7 +263,7 @@ function readGaisdata(cname,filename,fin){
                         import2db(dbname,tname,record);
                     },import_record_nums*1000);
 
-                    if(import_record_nums>600){
+                    if(import_record_nums>60){
                         import_record_nums=1;
                         lr.pause();
                         setTimeout(function(){
@@ -269,7 +313,7 @@ function readGaisdata(cname,filename,fin){
             import2db(dbname,tname,record);
         },import_record_nums*1000);
 
-        if(import_record_nums>600){
+        if(import_record_nums>60){
             import_record_nums=1;
             lr.pause();
             setTimeout(function(){
@@ -330,8 +374,8 @@ function import2db(dname,tname,content){
                     }
 
                 });
-                console.log("Sleep for 1 munutes...");
-                sleep.sleep(60);
+                //console.log("Sleep for 1 munutes...");
+                //sleep.sleep(60);
                 console.log("Reimport after 1 minutes");
                 setTimeout(function(){
                     import2db(dname,tname,content);
