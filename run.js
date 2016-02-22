@@ -53,7 +53,7 @@ readImportedList("/home/crazyrabbit/importGAIS2elastic/logs/import_20160221.list
             var i=0;
             var count_importfile=0;
 
-            for(i=0;i<nums;i++){
+            for(i=0;i<nums;i++,count_importfile++){
                 if(importedList.get(fname[i])!==undefined){
                     //console.log(fname[i]+" imported");
                     continue;
@@ -88,8 +88,11 @@ readImportedList("/home/crazyrabbit/importGAIS2elastic/logs/import_20160221.list
             });
 
             i++;
-            for(;i<nums;i++){
+            count_importfile++;
+
+            for(;i<nums;i++,count_importfile++){
                 if(importedList.get(fname[i])!==undefined){
+                    
                     //console.log(fname[i]+" imported");
                     continue;
                 }
@@ -97,7 +100,7 @@ readImportedList("/home/crazyrabbit/importGAIS2elastic/logs/import_20160221.list
                     break;
                 }
             }
-            count_importfile++;
+
             if(count_importfile==nums){
                 console.log("All list imported.");
                 return;
