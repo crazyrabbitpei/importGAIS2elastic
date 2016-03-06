@@ -45,7 +45,7 @@ var import_again=0;
 var HashMap = require('hashmap');
 var importedList = new HashMap();
 
-readImportedList("/home/crazyrabbit/importGAIS2elastic/logs/import_20160221.list",function(){
+readImportedList("/home/crazyrabbit/importGAIS2elastic/logs/8_total_list.list",function(){
     connect2DB(ip,port,function(stat){
         var date = dateFormat(new Date(), "yyyymmdd");
         readlist(dataDir,table,function(fname,total_column){
@@ -148,7 +148,7 @@ readImportedList("/home/crazyrabbit/importGAIS2elastic/logs/import_20160221.list
                     //console.log("Stop interval and watting....");
                     clearInterval(tag);
                 }
-            },60*1000);
+            },300*1000);
         });
         //job.start();
     });
@@ -262,10 +262,11 @@ function readGaisdata(cname,filename,fin){
                     tname = S(tname).left(6).s;//use YYYYMM ex:201602 for table's name
 
                     import_record_nums++;
+
                     setTimeout(function(){
                         import2db(dbname,tname,record);
                     },import_record_nums*1000);
-
+                    
                     if(import_record_nums>60){
                         import_record_nums=1;
                         lr.pause();
@@ -274,7 +275,6 @@ function readGaisdata(cname,filename,fin){
                         },10*1000);
 
                     }
-
                     content = [];
                     //console.log(record);
                 }
@@ -315,7 +315,7 @@ function readGaisdata(cname,filename,fin){
         setTimeout(function(){
             import2db(dbname,tname,record);
         },import_record_nums*1000);
-
+        
         if(import_record_nums>60){
             import_record_nums=1;
             lr.pause();
@@ -324,7 +324,6 @@ function readGaisdata(cname,filename,fin){
             },60*1000);
 
         }
-
         content = [];
         //console.log("read ["+filename+"] done");
         fin(filename);
