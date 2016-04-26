@@ -13,30 +13,12 @@ const exec = require('child_process').exec;
 var ip = setting['db_ip'];
 var port = setting['db_port'];
 var dbname = setting['ptt_dbname'];
-var table = setting['ptt_table'];
+//var table = setting['ptt_table'];
+
 var column = setting['ptt_column'];
 var dataDir = setting['dataDir'];
 
 var import_record_nums=0;
-
-/*not yet*/
-var job = new CronJob({
-    cronTime:"50 59 23 * * *",
-    onTick:function(){
-        var date = dateFormat(new Date(), "yyyymmdd");
-        readlist(dataDir,date,function(fname,total_column){
-            for(i=0;i<fname.length-1;i++){
-
-                //console.log("["+i+"] "+fname[i]);
-                gais2json(total_column,fname[i],function(result){
-                    //console.log("result:"+result); 
-                });
-            } 
-        });
-    },
-    start:false,
-    timeZone:'Asia/Taipei'
-});
 
 var client;
 var tag;
@@ -45,31 +27,59 @@ var import_again=0;
 var HashMap = require('hashmap');
 var importedList = new HashMap();
 
-readImportedList("/home/crazyrabbit/importGAIS2elastic/logs/8_total_list.list",function(){
+var job = new CronJob({
+    cronTime:"00 30 00 * * *",
+    onTick:function(){
+        var today = new Date();
+        console.log("--\ntoday:"+today);
+        today.setDate(today.getDate()-1);
+        console.log("yesterday:"+today);
+        var import_filedate = dateFormat(today,'yyyymmdd');
+        console.log('Starting import ['+import_filedate+']...');
+
+        fs.writeFile('./cronJob/import.daily','import files:'+today+' filename:'+import_filedate,function(err){
+            if(err){
+                fs.appendFile('./cronJob/import.err',err,function(){});
+            }
+        });
+
+        start(import_filedate);
+    },
+    start:false,
+    timeZone:'Asia/Taipei'
+});
+job.start();
+
+
+
+function start(import_filename){
+    //readImportedList("/home/crazyrabbit/importGAIS2elastic/logs/8_total_list.list",function(){
     connect2DB(ip,port,function(stat){
         var date = dateFormat(new Date(), "yyyymmdd");
-        readlist(dataDir,table,function(fname,total_column){
+        readlist(dataDir,import_filename,function(fname,total_column){
             var nums = fname.length-1;
             var i=0;
             var count_importfile=0;
-
-            for(i=0;i<nums;i++,count_importfile++){
-                if(importedList.get(fname[i])!==undefined){
-                    //console.log(fname[i]+" imported");
-                    continue;
-                }
-                else{
-                    break;
-                }
+            /*
+               for(i=0;i<nums;i++,count_importfile++){
+               if(importedList.get(fname[i])!==undefined){
+            //console.log(fname[i]+" imported");
+            continue;
             }
+            else{
+            break;
+            }
+            }
+            */
             var promise1 = new Promise(function(resolve,reject){
+                console.log("["+fname[i]+"] start");
                 gais2json(total_column,fname[i],function(result){
                     resolve(result);   
                 });
 
             });
             promise1.then(function(value){
-                //console.log("["+value+"] done");
+                console.log("["+value+"] done");
                 fs.appendFile("logs/import_"+date+".list",value+"\n",function(err){
                     if(err){
                         //console.log("write log false:"+error);
@@ -89,18 +99,18 @@ readImportedList("/home/crazyrabbit/importGAIS2elastic/logs/8_total_list.list",f
 
             i++;
             count_importfile++;
+            /*
+               for(;i<nums;i++,count_importfile++){
+               if(importedList.get(fname[i])!==undefined){
 
-            for(;i<nums;i++,count_importfile++){
-                if(importedList.get(fname[i])!==undefined){
-                    
-                    //console.log(fname[i]+" imported");
-                    continue;
-                }
-                else{
-                    break;
-                }
+            //console.log(fname[i]+" imported");
+            continue;
             }
-
+            else{
+            break;
+            }
+            }
+            */
             if(count_importfile==nums){
                 console.log("All list imported.");
                 return;
@@ -108,13 +118,14 @@ readImportedList("/home/crazyrabbit/importGAIS2elastic/logs/8_total_list.list",f
 
             tag = setInterval(function(){
                 var promise = new Promise(function(resolve,reject){
+                    console.log("["+fname[i]+"] start");
                     gais2json(total_column,fname[i],function(result){
                         resolve(result);   
                     });
 
                 });
                 promise.then(function(value){
-                    //console.log("["+value+"] done");
+                    console.log("["+value+"] done");
                     fs.appendFile("logs/import_"+date+".list",value+"\n",function(err){
                         if(err){
                             //console.log("write log false:"+error);
@@ -135,15 +146,17 @@ readImportedList("/home/crazyrabbit/importGAIS2elastic/logs/8_total_list.list",f
                 });
 
                 i++;
-                for(;i<nums;i++){
-                    if(importedList.get(fname[i])!==undefined){
-                        //console.log(fname[i]+" imported");
-                        continue;
-                    }
-                    else{
-                        break;
-                    }
+                /*
+                   for(;i<nums;i++){
+                   if(importedList.get(fname[i])!==undefined){
+                //console.log(fname[i]+" imported");
+                continue;
                 }
+                else{
+                break;
+                }
+                }
+                */
                 if(i==nums){
                     //console.log("Stop interval and watting....");
                     clearInterval(tag);
@@ -152,8 +165,11 @@ readImportedList("/home/crazyrabbit/importGAIS2elastic/logs/8_total_list.list",f
         });
         //job.start();
     });
-    
-});
+
+    //});
+
+}
+
 
 
 
@@ -219,7 +235,7 @@ function readImportedList(filename,fin){
     }
     var lr = new LineByLineReader(filename,options);
     lr.on('error', function (err) {
-        console.log("error:"+err);
+        console.log("["+filename+"]error:"+err);
     });
     lr.on('line', function (line) {
         //var parts = line.split("/");
@@ -335,7 +351,7 @@ function import2db(dname,tname,content){
     var url = for_id['url'];
     client.create({
         index:dname,
-        type:tname,
+        type:"201602",
         id:url,
         body:content
     },function(error,response){
