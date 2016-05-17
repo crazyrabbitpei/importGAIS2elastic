@@ -50,27 +50,26 @@ var job = new CronJob({
 });
 job.start();
 
-
-
+//import_filedate="20160511";
+//console.log('Starting import ['+import_filedate+']...');
+//start(import_filedate);
 function start(import_filename){
-    //readImportedList("/home/crazyrabbit/importGAIS2elastic/logs/8_total_list.list",function(){
+    readImportedList("/home/crazyrabbit/importGAIS2elastic/logs/10_total_list.list",function(){
     connect2DB(ip,port,function(stat){
         var date = dateFormat(new Date(), "yyyymmdd");
         readlist(dataDir,import_filename,function(fname,total_column){
             var nums = fname.length-1;
             var i=0;
             var count_importfile=0;
-            /*
-               for(i=0;i<nums;i++,count_importfile++){
-               if(importedList.get(fname[i])!==undefined){
-            //console.log(fname[i]+" imported");
-            continue;
+            for(i=0;i<nums;i++,count_importfile++){
+                if(importedList.get(fname[i])!==undefined){
+                    console.log(fname[i]+" imported");
+                    continue;
+                }
+                else{
+                    break;
+                }
             }
-            else{
-            break;
-            }
-            }
-            */
             var promise1 = new Promise(function(resolve,reject){
                 console.log("["+fname[i]+"] start");
                 gais2json(total_column,fname[i],function(result){
@@ -99,18 +98,15 @@ function start(import_filename){
 
             i++;
             count_importfile++;
-            /*
-               for(;i<nums;i++,count_importfile++){
-               if(importedList.get(fname[i])!==undefined){
-
-            //console.log(fname[i]+" imported");
-            continue;
+            for(;i<nums;i++,count_importfile++){
+                if(importedList.get(fname[i])!==undefined){
+                    console.log(fname[i]+" imported");
+                    continue;
+                }
+                else{
+                    break;
+                }
             }
-            else{
-            break;
-            }
-            }
-            */
             if(count_importfile==nums){
                 console.log("All list imported.");
                 return;
@@ -146,27 +142,25 @@ function start(import_filename){
                 });
 
                 i++;
-                /*
-                   for(;i<nums;i++){
-                   if(importedList.get(fname[i])!==undefined){
-                //console.log(fname[i]+" imported");
-                continue;
+                for(;i<nums;i++){
+                    if(importedList.get(fname[i])!==undefined){
+                        console.log(fname[i]+" imported");
+                        continue;
+                    }
+                    else{
+                        break;
+                    }
                 }
-                else{
-                break;
-                }
-                }
-                */
                 if(i==nums){
                     //console.log("Stop interval and watting....");
                     clearInterval(tag);
                 }
-            },300*1000);
+            },10*1000);
         });
         //job.start();
     });
 
-    //});
+    });
 
 }
 
@@ -394,10 +388,12 @@ function import2db(dname,tname,content){
                 });
                 //console.log("Sleep for 1 munutes...");
                 //sleep.sleep(60);
-                console.log("Reimport after 1 minutes");
+
+                var random_time = Math.floor(Math.random()*(60-30+1)+30);
+                console.log("Reimport after "+random_time+" minutes");
                 setTimeout(function(){
                     import2db(dname,tname,content);
-                },60*1000);
+                },random_time*1000);
             }
             else if(code!="409"){
                 fs.appendFile("logs/err_"+date+".log","code:"+code+"\n"+temp+"\n--\n",function(err){
